@@ -604,17 +604,9 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
-  function updatePublishInfo() {
-    var size = new Blob([SD.toContentJs(currentData)]).size;
-    var kb = Math.round(size / 1024);
-    $('contentSize').textContent = 'content.js will be about ' + kb + ' KB.' + (size > 800 * 1024 ? ' That is large because photos are embedded in it. For a faster site, save photos as files in the images folder and type their path (for example images/products/pen.webp) instead.' : '');
-  }
-  function publishFile() {
-    download('content.js', SD.toContentJs(currentData), 'text/javascript');
-    toast('content.js downloaded — now replace js/content.js with it');
-  }
+  function updatePublishInfo() {}
   function publish() {
-    if (!getToken()) { publishFile(); return; }
+    if (!getToken()) { alert('Live publishing is not connected yet.\n\nGo to Publish & Backup, paste your admin token and click "Save & test connection".'); openTab('publish'); return; }
     var body = JSON.stringify(SD.normalize(currentData));
     toast('Publishing…');
     fetch(apiUrl('content'), { method: 'PUT', headers: authHeaders({ 'Content-Type': 'application/json' }), body: body })
@@ -632,7 +624,6 @@
   }
   $('publishBtn').addEventListener('click', publish);
   $('publishLiveBtn').addEventListener('click', publish);
-  $('downloadContentBtn').addEventListener('click', publishFile);
 
   $('exportBtn').addEventListener('click', function () {
     download('innovative-png-backup.json', JSON.stringify(SD.normalize(currentData), null, 2), 'application/json');
