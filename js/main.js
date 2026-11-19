@@ -17,6 +17,9 @@ window.SiteData.whenReady(function () {
   else if (pageNames[page]) document.title = pageNames[page] + ' | ' + site.businessName;
 
   // ---------- Header, nav, footer ----------
+  function mapsUrl(addr) {
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(String(addr || '').replace(/\s*\n\s*/g, ', '));
+  }
   function renderHeader() {
     var host = $('siteHeader');
     if (!host) return;
@@ -44,7 +47,7 @@ window.SiteData.whenReady(function () {
             '<select name="cat" aria-label="Category">' + options + '</select>' +
             '<button type="submit">Search</button>' +
           '</form>' +
-          '<div class="header-actions"><a href="contact.html" class="header-link">Enquiry</a><a href="shop.html" class="btn btn-sm btn-primary">Shop</a></div>' +
+          '<div class="header-actions"><a href="' + esc(SD.telHref(site.phone)) + '" class="btn btn-sm btn-primary">Call us</a></div>' +
         '</div>' +
         '<nav class="cat-nav" aria-label="Main"><div class="container cat-nav-bar">' +
           '<button type="button" class="menu-toggle" id="menuToggle" aria-label="Menu" aria-expanded="false" aria-controls="catNav">☰ Menu</button>' +
@@ -88,7 +91,7 @@ window.SiteData.whenReady(function () {
             '<p>' + esc(site.footerBlurb) + '</p></div>' +
           '<div class="footer-links"><h4>Shop</h4>' + shopLinks + '<h4 style="margin-top:1rem">Company</h4><a href="about.html">About</a><a href="contact.html">Contact</a></div>' +
           '<div class="footer-contact"><h4>Visit Us</h4>' +
-            '<p>' + nl2br(site.address) + '</p>' +
+            '<p>' + nl2br(site.address) + '<br><a href="' + esc(mapsUrl(site.address)) + '" target="_blank" rel="noopener">Get directions →</a></p>' +
             '<p><a href="' + esc(SD.telHref(site.phone)) + '">' + esc(site.phone) + '</a><br><a href="mailto:' + esc(site.email) + '">' + esc(site.email) + '</a></p>' +
             '<p>' + nl2br(site.hours) + '</p></div>' +
         '</div>' +
@@ -171,6 +174,7 @@ window.SiteData.whenReady(function () {
       var vis = visibleProducts();
       var featured = vis.filter(function (p) { return p.featured; }).slice(0, st.featuredCount);
       var list = featured.length ? featured : vis.slice(0, 4);
+      if (list.length > 4) list = list.slice(0, list.length - (list.length % 4)); // full rows only, no orphan gaps
       if (!list.length) grid.innerHTML = '<p class="empty-state">Products will appear here soon.</p>';
       else list.forEach(function (p) { grid.appendChild(createProductCard(p)); });
     }
@@ -280,7 +284,7 @@ window.SiteData.whenReady(function () {
     setText('pageTitle', data.contact.title);
     setText('pageSub', data.contact.subtitle);
     setText('formIntro', data.contact.formIntro);
-    var addr = $('contactAddress'); if (addr) addr.innerHTML = nl2br(site.address);
+    var addr = $('contactAddress'); if (addr) addr.innerHTML = nl2br(site.address) + '<br><a href="' + esc(mapsUrl(site.address)) + '" target="_blank" rel="noopener">Open in Google Maps →</a>';
     var hours = $('contactHours'); if (hours) hours.innerHTML = nl2br(site.hours);
     var pe = $('contactPhoneEmail');
     if (pe) pe.innerHTML =
