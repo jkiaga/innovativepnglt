@@ -19,4 +19,4 @@ id = "PASTE_KV_NAMESPACE_ID_HERE"
 # Photos uploaded from the admin
 [[r2_buckets]]
 binding = "PHOTOS"
-bucket_name = "innovative-png-photos"
+bucket_name = "product-images"

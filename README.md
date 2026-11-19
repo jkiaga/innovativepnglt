@@ -68,7 +68,7 @@ One-time setup, from a terminal in this folder (needs Node.js):
 
 1. `npx wrangler login`
 2. `npx wrangler kv namespace create CONTENT` and paste the `id` it prints into `wrangler.toml` (replace `PASTE_KV_NAMESPACE_ID_HERE`).
-3. `npx wrangler r2 bucket create innovative-png-photos`
+3. `npx wrangler r2 bucket create product-images`
 4. `npx wrangler deploy`
 5. Make an admin token (at least 12 characters, e.g. `openssl rand -base64 24`) and store it: `npx wrangler secret put ADMIN_TOKEN`
 6. Open `https://<your-site>/admin/`, go to **Publish & Backup**, paste the token and click **Save & test connection**, then **Publish now** once.
