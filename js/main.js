@@ -95,8 +95,7 @@ window.SiteData.whenReady(function () {
             '<p><a href="' + esc(SD.telHref(site.phone)) + '">' + esc(site.phone) + '</a><br><a href="mailto:' + esc(site.email) + '">' + esc(site.email) + '</a></p>' +
             '<p>' + nl2br(site.hours) + '</p></div>' +
         '</div>' +
-        '<div class="container footer-bottom"><p>© ' + new Date().getFullYear() + ' ' + esc(site.businessName) + '. All rights reserved.</p>' +
-          '<p class="admin-link"><a href="admin/index.html">Admin</a></p></div>' +
+        '<div class="container footer-bottom"><p>© ' + new Date().getFullYear() + ' ' + esc(site.businessName) + '. All rights reserved.</p></div>' +
       '</footer>';
   }
 
