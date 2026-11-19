@@ -82,6 +82,18 @@ How it behaves:
 - The Worker keeps the previous published version in KV (`content:previous`) in case you need to roll back.
 - To rehearse locally: create a `.dev.vars` file containing `ADMIN_TOKEN=some-long-test-token`, then run `npx wrangler dev`.
 
+## User accounts (feature branch)
+
+Instead of one shared token, each person can have their own login.
+
+- **Roles:** *Owner* does everything, including managing users. *Editor* can edit, publish and upload photos but cannot manage users.
+- **First setup:** open `/admin/`, click **Sign in with the admin token instead**, and paste `ADMIN_TOKEN`. Go to the **Users** tab and create an owner account for yourself. After that, sign in with your username and password.
+- **The admin token stays as the emergency login.** It is always an owner. Keep it private and rarely used.
+- **Security:** passwords are stored only as salted PBKDF2-SHA256 hashes in KV (`user:<username>`). Sessions last 12 hours and can be ended by the server. Changing a user's role or password, disabling or deleting them, or changing your own password signs that person out everywhere. After 5 wrong attempts a username is locked for 15 minutes. The last active owner cannot be demoted, disabled or deleted.
+- **Passwords:** at least 10 characters. Usernames: 3 to 32 characters (a-z, 0-9, dot, dash, underscore).
+- **Without the Worker** (plain static hosting) the admin falls back to the old browser-only password.
+- Put Cloudflare Access on `/admin*` as well, so strangers cannot even open the login page.
+
 ## Speed and hosting files
 
 - `_headers` – cache and security headers for Cloudflare (Workers static assets or Pages). Fonts cache for a year, photos for a day, `content.js` for 5 minutes, and `/admin/*` is never cached or indexed.

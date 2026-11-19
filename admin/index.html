@@ -69,6 +69,17 @@
     .tab-btn.active { background: var(--blue); color: #fff; }
     .panel { display: none; }
     .panel.active { display: block; }
+    .link-btn { background: none; border: none; color: var(--blue); font: inherit; font-size: 0.85rem; text-decoration: underline; cursor: pointer; padding: 0; }
+    .user-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .user-table th { text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
+    .user-table td { padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .user-table select { padding: 0.25rem 0.4rem; font: inherit; border: 1px solid var(--border); border-radius: 6px; }
+    .user-table .row-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .user-table .row-actions button { font-size: 0.78rem; padding: 0.25rem 0.6rem; border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; font-family: inherit; }
+    .user-table .row-actions button.danger { color: #b91c1c; border-color: #fecaca; }
+    .user-table tr.is-off td { opacity: .55; }
+    .user-table-wrap { overflow-x: auto; }
+    .role-pill { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; background: #eef2ff; color: var(--blue-dark); text-transform: uppercase; }
     .card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 1.25rem; margin-bottom: 1rem; }
     .card h2 { font-size: 1.05rem; margin-bottom: 0.85rem; color: var(--blue-dark); }
     .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; gap: 0.75rem; flex-wrap: wrap; }
@@ -167,9 +178,11 @@
       <h1>Admin Login</h1>
       <p class="sub">Edit your product showcase website</p>
       <form id="loginForm">
-        <div class="form-group"><label for="password">Password</label><input type="password" id="password" placeholder="Enter password" autocomplete="current-password" autofocus></div>
+        <div class="form-group" id="loginUserGroup" style="display:none"><label for="username">Username</label><input type="text" id="username" placeholder="Your username" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
+        <div class="form-group"><label for="password" id="passwordLabel">Password</label><input type="password" id="password" placeholder="Enter password" autocomplete="current-password" autofocus></div>
         <button type="submit" class="btn btn-primary full">Sign In</button>
         <p class="error-msg" id="loginError">Incorrect password. Try again.</p>
+        <p style="text-align:center;margin-top:0.85rem"><button type="button" class="link-btn" id="useTokenBtn" style="display:none">Sign in with the admin token instead</button></p>
       </form>
     </div>
   </div>
@@ -210,6 +223,7 @@
         <button class="tab-btn" data-tab="categories">Categories</button>
         <button class="tab-btn" data-tab="site">Business Info</button>
         <button class="tab-btn" data-tab="settings">Settings</button>
+        <button class="tab-btn" data-tab="users" id="usersTab" style="display:none">Users</button>
         <button class="tab-btn" data-tab="publish">Publish &amp; Backup</button>
       </div>
 
@@ -380,7 +394,7 @@
           <button class="btn btn-primary" data-save="Settings saved">Save settings</button>
         </div>
 
-        <div class="card">
+        <div class="card" id="legacyPassCard">
           <h2>Change password</h2>
           <p class="hint" style="margin:-0.4rem 0 0.85rem">This only locks the admin screen in a browser. It is not real security — see the README.</p>
           <div class="form-group"><label>Current</label><input type="password" id="curPass" autocomplete="current-password"></div>
@@ -396,6 +410,34 @@
             <button class="btn btn-secondary btn-sm" id="markAllStock">Mark all in stock</button>
             <button class="btn btn-secondary btn-sm" id="clearFeatured">Clear featured</button>
             <button class="btn btn-secondary btn-sm" id="sortByName">Sort shop order A–Z</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ USERS ============ -->
+      <div class="panel" id="panel-users">
+        <div class="card">
+          <h2>My account</h2>
+          <p class="hint" id="myAccountInfo" style="margin:-0.4rem 0 0.85rem"></p>
+          <div id="myPassForm">
+            <div class="form-group"><label>Current password</label><input type="password" id="myCurPass" autocomplete="current-password"></div>
+            <div class="form-group"><label>New password (10+ characters)</label><input type="password" id="myNewPass" autocomplete="new-password"></div>
+            <button class="btn btn-primary" id="myPassBtn">Change my password</button>
+          </div>
+        </div>
+        <div id="teamSection" style="display:none">
+          <div class="card">
+            <h2>Team</h2>
+            <p class="hint" style="margin:-0.4rem 0 0.85rem"><strong>Owner</strong> can do everything, including managing users. <strong>Editor</strong> can edit, publish and upload photos, but cannot manage users. Changing a user&rsquo;s role, password or status signs them out everywhere.</p>
+            <div class="user-table-wrap"><table class="user-table"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody id="userRows"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
+          </div>
+          <div class="card">
+            <h2>Add a user</h2>
+            <div class="form-group"><label>Full name</label><input type="text" id="nuName" autocomplete="off"></div>
+            <div class="form-group"><label>Username (3–32 characters: a–z, 0–9, dot, dash, underscore)</label><input type="text" id="nuUser" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+            <div class="form-group"><label>Role</label><select id="nuRole"><option value="editor">Editor</option><option value="owner">Owner</option></select></div>
+            <div class="form-group"><label>Temporary password (10+ characters)</label><input type="password" id="nuPass" autocomplete="new-password"></div>
+            <button class="btn btn-primary" id="nuBtn">Create user</button>
           </div>
         </div>
       </div>
