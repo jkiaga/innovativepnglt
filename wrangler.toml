@@ -14,7 +14,7 @@ run_worker_first = ["/api/*", "/img/*"]
 # Published site content (one small JSON document)
 [[kv_namespaces]]
 binding = "CONTENT"
-id = "PASTE_KV_NAMESPACE_ID_HERE"
+id = "30d6c905087a41d0859b030bd3b0ec1b"
 
 # Photos uploaded from the admin
 [[r2_buckets]]
