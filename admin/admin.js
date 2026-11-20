@@ -44,7 +44,15 @@
   // ---------- Login / logout ----------
   var liveReady = SD.loadLive();   // newest published content, if the Worker is deployed
   var TOKEN_KEY = 'ipng_admin_token';
-  function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+  var SESSION_KEY = 'ipng_session';
+  function sessionTok() { try { return sessionStorage.getItem(SESSION_KEY) || ''; } catch (e) { return ''; } }
+  function setSessionTok(t) { try { if (t) sessionStorage.setItem(SESSION_KEY, t); else sessionStorage.removeItem(SESSION_KEY); } catch (e) {} }
+  function getToken() { try { return sessionTok() || localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+  var liveMode = false, me = null, tokenLogin = false;
+  // Is the Worker (and so user accounts) available? It answers /api/me with a JSON 401; plain static hosting does not.
+  var liveProbe = fetch((window.SITE_BASE || '') + 'api/me', { headers: { Accept: 'application/json' } })
+    .then(function (r) { return r.status === 401 && (r.headers.get('content-type') || '').indexOf('json') !== -1; })
+    .catch(function () { return false; });
   function authHeaders(extra) { var h = { Authorization: 'Bearer ' + getToken() }; for (var k in (extra || {})) h[k] = extra[k]; return h; }
   function apiUrl(path) { return (window.SITE_BASE || '') + 'api/' + path; }
   function refreshLiveUi() {
@@ -76,18 +84,131 @@
     currentData = SD.get();
     renderAll();
     refreshLiveUi();
+    applyMode();
   }
   function showLogin() {
     $('loginScreen').style.display = 'flex';
     $('adminWrap').classList.remove('active');
     $('password').value = '';
   }
+  function loginError(msg) { var el = $('loginError'); el.textContent = msg; el.classList.add('show'); }
+
+  // Accounts (live) vs. the old browser-only password (static hosting)
+  function setupLoginUi() {
+    $('loginUserGroup').style.display = liveMode && !tokenLogin ? '' : 'none';
+    $('useTokenBtn').style.display = liveMode ? '' : 'none';
+    $('useTokenBtn').textContent = tokenLogin ? 'Sign in with a username instead' : 'Sign in with the admin token instead';
+    $('passwordLabel').textContent = tokenLogin ? 'Admin token' : 'Password';
+    $('password').placeholder = tokenLogin ? 'Paste the admin token' : 'Enter password';
+    $('loginError').classList.remove('show');
+    if (liveMode && !tokenLogin) $('username').focus();
+  }
+  $('useTokenBtn').addEventListener('click', function () { tokenLogin = !tokenLogin; setupLoginUi(); });
+
+  function enterAdmin(user, token) {
+    me = user; setSessionTok(token);
+    $('loginError').classList.remove('show');
+    liveReady.then(showAdmin);
+  }
   $('loginForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    if ($('password').value === getPassword()) { setLoggedIn(true); $('loginError').classList.remove('show'); liveReady.then(showAdmin); }
-    else $('loginError').classList.add('show');
+    var pw = $('password').value;
+    if (!liveMode) {
+      if (pw === getPassword()) { setLoggedIn(true); $('loginError').classList.remove('show'); liveReady.then(showAdmin); }
+      else loginError('Incorrect password. Try again.');
+      return;
+    }
+    if (tokenLogin) {
+      fetch(apiUrl('auth'), { headers: { Authorization: 'Bearer ' + pw.trim() } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j && j.user) enterAdmin(j.user, pw.trim()); else loginError('That token was not accepted.'); })
+        .catch(function () { loginError('Could not reach the website.'); });
+      return;
+    }
+    fetch(apiUrl('login'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('username').value.trim(), password: pw }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) { if (res.ok) enterAdmin(res.j.user, res.j.token); else loginError(res.j.error || 'Sign-in failed.'); })
+      .catch(function () { loginError('Could not reach the website.'); });
   });
-  $('logoutBtn').addEventListener('click', function () { setLoggedIn(false); showLogin(); });
+  $('logoutBtn').addEventListener('click', function () {
+    var t = sessionTok();
+    if (liveMode && t) fetch(apiUrl('logout'), { method: 'POST', headers: { Authorization: 'Bearer ' + t } }).catch(function () {});
+    setSessionTok(''); me = null; tokenLogin = false; setLoggedIn(false); showLogin(); setupLoginUi();
+  });
+
+  // ---------- Users & roles ----------
+  function api(method, path, body) {
+    return fetch(apiUrl(path), { method: method, headers: authHeaders(body ? { 'Content-Type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (r.status === 401 && sessionTok()) { setSessionTok(''); alert('Your session ended. Please sign in again.'); showLogin(); }
+          if (!r.ok) throw new Error(j.error || ('error ' + r.status));
+          return j;
+        });
+      });
+  }
+  function applyMode() {
+    var live = liveMode && !!me;
+    $('usersTab').style.display = live ? '' : 'none';
+    $('legacyPassCard').style.display = live ? 'none' : '';
+    $('liveCard').style.display = (live && sessionTok()) ? 'none' : '';
+    $('passWarn').style.display = live ? 'none' : $('passWarn').style.display;
+    if (!live) return;
+    var viaToken = me.username === 'admin-token';
+    $('myAccountInfo').innerHTML = viaToken
+      ? 'You are signed in with the <strong>admin token</strong>. It has no password. Create an owner account below, then sign in with that.'
+      : 'Signed in as <strong>' + esc(me.name) + '</strong> (' + esc(me.username) + ') · <span class="role-pill">' + esc(me.role) + '</span>';
+    $('myPassForm').style.display = viaToken ? 'none' : '';
+    $('teamSection').style.display = me.role === 'owner' ? '' : 'none';
+    if (me.role === 'owner') loadUsers();
+  }
+  function loadUsers() {
+    api('GET', 'users').then(function (j) {
+      var rows = j.users.map(function (u) {
+        var mine = me && u.username === me.username;
+        return '<tr class="' + (u.active ? '' : 'is-off') + '" data-user="' + esc(u.username) + '">' +
+          '<td>' + esc(u.name) + (mine ? ' <small>(you)</small>' : '') + '</td><td>' + esc(u.username) + '</td>' +
+          '<td><select data-act="role"><option value="editor"' + (u.role === 'editor' ? ' selected' : '') + '>Editor</option><option value="owner"' + (u.role === 'owner' ? ' selected' : '') + '>Owner</option></select></td>' +
+          '<td>' + (u.active ? 'Active' : 'Disabled') + '</td>' +
+          '<td>' + (u.lastLogin ? esc(new Date(u.lastLogin).toLocaleString()) : 'Never') + '</td>' +
+          '<td><div class="row-actions"><button type="button" data-act="pass">Reset password</button><button type="button" data-act="toggle">' + (u.active ? 'Disable' : 'Enable') + '</button><button type="button" class="danger" data-act="delete">Delete</button></div></td></tr>';
+      }).join('');
+      $('userRows').innerHTML = rows || '<tr><td colspan="6">No users yet. Add the first owner below.</td></tr>';
+      $('userRows').dataset.json = JSON.stringify(j.users);
+    }).catch(function (e) { $('userRows').innerHTML = '<tr><td colspan="6">Could not load users: ' + esc(e.message) + '</td></tr>'; });
+  }
+  function findUser(name) { try { return JSON.parse($('userRows').dataset.json).filter(function (u) { return u.username === name; })[0]; } catch (e) { return null; } }
+  function userAction(name, body, okMsg) {
+    return api('PATCH', 'users/' + encodeURIComponent(name), body).then(function () { toast(okMsg); loadUsers(); }).catch(function (e) { alert(e.message); loadUsers(); });
+  }
+  $('userRows').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr'); if (!tr || e.target.dataset.act !== 'role') return;
+    userAction(tr.dataset.user, { role: e.target.value }, 'Role updated');
+  });
+  $('userRows').addEventListener('click', function (e) {
+    var btn = e.target.closest('button'); if (!btn) return;
+    var tr = btn.closest('tr'), name = tr.dataset.user, u = findUser(name);
+    if (btn.dataset.act === 'pass') {
+      var pw = prompt('New password for ' + name + ' (10+ characters). They will be signed out everywhere.');
+      if (pw) userAction(name, { password: pw }, 'Password reset');
+    } else if (btn.dataset.act === 'toggle') {
+      userAction(name, { active: !(u && u.active) }, u && u.active ? 'User disabled' : 'User enabled');
+    } else if (btn.dataset.act === 'delete') {
+      if (confirm('Delete user "' + name + '"? This cannot be undone.')) {
+        api('DELETE', 'users/' + encodeURIComponent(name)).then(function () { toast('User deleted'); loadUsers(); }).catch(function (er) { alert(er.message); });
+      }
+    }
+  });
+  $('nuBtn').addEventListener('click', function () {
+    api('POST', 'users', { name: $('nuName').value, username: $('nuUser').value, role: $('nuRole').value, password: $('nuPass').value })
+      .then(function () { toast('User created'); $('nuName').value = $('nuUser').value = $('nuPass').value = ''; loadUsers(); })
+      .catch(function (e) { alert(e.message); });
+  });
+  $('myPassBtn').addEventListener('click', function () {
+    api('POST', 'me/password', { current: $('myCurPass').value, next: $('myNewPass').value })
+      .then(function (j) { setSessionTok(j.token); $('myCurPass').value = $('myNewPass').value = ''; toast('Password changed'); })
+      .catch(function (e) { alert(e.message); });
+  });
 
   // ---------- Tabs ----------
   function openTab(name) {
@@ -114,7 +235,7 @@
       : 'No unpublished edits. The site matches the published content.';
     $('statusPublish').style.display = draft ? '' : 'none';
     $('statusDiscard').style.display = draft ? '' : 'none';
-    $('passWarn').style.display = getPassword() === DEFAULT_PASSWORD ? '' : 'none';
+    $('passWarn').style.display = (!liveMode && getPassword() === DEFAULT_PASSWORD) ? '' : 'none';
     $('brandName').textContent = currentData ? currentData.site.businessName : '';
     renderStats();
   }
@@ -658,5 +779,14 @@
   $('resetBtn').addEventListener('click', discardDraft);
   $('statusDiscard').addEventListener('click', discardDraft);
 
-  if (isLoggedIn()) liveReady.then(showAdmin);
+  liveProbe.then(function (live) {
+    liveMode = live;
+    setupLoginUi();
+    if (!live) { if (isLoggedIn()) liveReady.then(showAdmin); return; }
+    if (!sessionTok()) return;
+    fetch(apiUrl('auth'), { headers: authHeaders() })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && j.user) { me = j.user; liveReady.then(showAdmin); } else setSessionTok(''); })
+      .catch(function () {});
+  });
 })();
