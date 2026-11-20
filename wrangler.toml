@@ -22,7 +22,4 @@ id = "30d6c905087a41d0859b030bd3b0ec1b"
 binding = "PHOTOS"
 bucket_name = "product-images"
 
-# ...
-[vars]
-ADMIN_TOKEN = "YCk2?Hp&2HJiKG_G"
-# ...
+# ADMIN_TOKEN is a Cloudflare Secret (Settings > Variables and Secrets). Never put it in this file.
