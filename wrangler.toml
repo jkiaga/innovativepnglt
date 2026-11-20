@@ -1,6 +1,7 @@
 # Cloudflare Worker + static site for Innovative PNG Ltd.
 # Setup steps are in README.md ("Going live on Cloudflare").
-name = "innovative-png-ltd"
+
+name = 'innovativepnglt'
 main = "worker/index.js"
 compatibility_date = "2025-01-01"
 
