@@ -129,12 +129,13 @@ window.SiteData.whenReady(function () {
     card.className = 'product-card';
     card.dataset.category = p.category;
     var badge = p.inStock ? '' : '<span class="product-badge soldout">Currently unavailable</span>';
+    var category = catById[p.category];
     var img = p.image
       ? '<img src="' + esc(SD.img(p.image)) + '" alt="' + esc(p.name) + '" loading="lazy" decoding="async">'
-      : '<span style="opacity:0.55">Product photo<br><small>coming soon</small></span>';
-    var cat = catById[p.category] ? catById[p.category].label : p.category;
+      : '<div class="product-fallback" aria-hidden="true"><span>' + esc(category ? category.icon : '▦') + '</span></div>';
+    var cat = category ? category.label : p.category;
     card.innerHTML =
-      '<div class="product-image' + (p.image ? ' has-img' : '') + '">' + badge + img + '</div>' +
+      '<div class="product-image' + (p.image ? ' has-img' : ' no-img') + '">' + badge + img + '</div>' +
       '<div class="product-body">' +
         '<div class="product-cat">' + esc(cat) + '</div>' +
         '<h3 class="product-title">' + esc(p.name) + '</h3>' +
@@ -147,18 +148,22 @@ window.SiteData.whenReady(function () {
 
   // ---------- Home ----------
   function renderHome() {
-    setText('heroTitle', data.hero.headline);
-    setText('heroLead', data.hero.lead);
-    setText('heroPrimary', data.hero.primaryLabel);
-    setText('heroSecondary', data.hero.secondaryLabel);
+    // Keep the homepage useful even before the admin has entered hero copy.
+    setText('heroTitle', data.hero.headline || 'Your everyday essentials, all in one place.');
+    setText('heroLead', data.hero.lead || 'Shop stationery, phone accessories, charging solutions and laptop essentials at Innovative PNG Ltd in Mount Hagen.');
+    setText('heroPrimary', data.hero.primaryLabel || 'Browse Products');
+    setText('heroSecondary', data.hero.secondaryLabel || 'Contact Us');
     var badges = $('heroBadges');
     if (badges) {
       badges.innerHTML = data.hero.badges.map(function (b) { return '<span class="hero-badge">' + esc(b) + '</span>'; }).join('');
       badges.style.display = data.hero.badges.length ? '' : 'none';
     }
     var heroShown = applySlot('hero', 'hero-photo', site.businessName);
+    var heroVisual = document.querySelector('.hero-visual');
     var inner = document.querySelector('.hero-promo-inner');
-    if (inner && !heroShown) inner.classList.add('no-visual');
+    // Never show an unfinished dashed upload placeholder to customers.
+    if (!data.images.hero && heroVisual) heroVisual.style.display = 'none';
+    if (inner && (!data.images.hero || !heroShown)) inner.classList.add('no-visual');
 
     var catCards = $('catCards');
     if (catCards) {
